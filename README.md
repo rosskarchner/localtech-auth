@@ -80,14 +80,37 @@ Before deploying, you need to configure the OAuth credentials for Google and App
 
 **Security Best Practice**: Instead of hardcoding credentials, use AWS Secrets Manager or SSM Parameter Store to store sensitive values.
 
-### 3. Deploy
+Alternatively, use the provided `setup_credentials.py` script to securely store credentials:
 
 ```bash
+python3 setup_credentials.py
+```
+
+### 3. Configure Route53 Hosted Zone
+
+Find your Route53 hosted zone ID for `localtech.events`:
+
+```bash
+aws route53 list-hosted-zones --query "HostedZones[?Name=='localtech.events.'].Id" --output text
+```
+
+Then either:
+- Set it in `cdk.json` under `context.hosted_zone_id`, OR
+- Set environment variable: `export HOSTED_ZONE_ID=Z1234567890ABC`
+
+### 4. Deploy
+
+```bash
+# Set AWS credentials and region
+export AWS_DEFAULT_REGION=us-east-1  # ACM certificates for CloudFront must be in us-east-1
+
 # Synthesize CloudFormation template
 cdk synth
 
 # Deploy the stack
 cdk deploy
+
+# You'll be prompted to approve security-sensitive changes (IAM roles, etc.)
 ```
 
 ## Usage

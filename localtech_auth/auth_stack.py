@@ -7,6 +7,7 @@ from aws_cdk import (
     aws_dynamodb as dynamodb,
     aws_lambda as lambda_,
     aws_route53 as route53,
+    aws_route53_targets as targets,
     aws_certificatemanager as acm,
     aws_iam as iam,
 )
@@ -14,14 +15,22 @@ from constructs import Construct
 
 class LocaltechAuthStack(Stack):
 
-    def __init__(self, scope: Construct, construct_id: str, **kwargs) -> None:
+    def __init__(self, scope: Construct, construct_id: str, hosted_zone_id: str = None, **kwargs) -> None:
         super().__init__(scope, construct_id, **kwargs)
 
-        # Look up the hosted zone for localtech.events
-        hosted_zone = route53.HostedZone.from_lookup(
-            self, "LocaltechHostedZone",
-            domain_name="localtech.events"
-        )
+        # Look up or import the hosted zone for localtech.events
+        if hosted_zone_id:
+            hosted_zone = route53.HostedZone.from_hosted_zone_attributes(
+                self, "LocaltechHostedZone",
+                hosted_zone_id=hosted_zone_id,
+                zone_name="localtech.events"
+            )
+        else:
+            # If no zone ID provided, look it up (requires account/region)
+            hosted_zone = route53.HostedZone.from_lookup(
+                self, "LocaltechHostedZone",
+                domain_name="localtech.events"
+            )
 
         # Create certificate for account.localtech.events
         certificate = acm.Certificate(
@@ -81,7 +90,7 @@ class LocaltechAuthStack(Stack):
             zone=hosted_zone,
             record_name="account",
             target=route53.RecordTarget.from_alias(
-                route53.CloudFrontTarget(user_pool_domain.cloud_front_domain_name)
+                targets.UserPoolDomainTarget(user_pool_domain)
             )
         )
 
@@ -183,7 +192,7 @@ class LocaltechAuthStack(Stack):
         # Create Lambda function for user profile management
         profile_lambda = lambda_.Function(
             self, "ProfileLambda",
-            runtime=lambda_.Runtime.PYTHON_3_14,
+            runtime=lambda_.Runtime.PYTHON_3_13,
             handler="index.handler",
             code=lambda_.Code.from_asset("lambda/profile"),
             environment={
@@ -209,7 +218,7 @@ class LocaltechAuthStack(Stack):
         # Create Lambda for Cognito triggers (post-confirmation)
         post_confirmation_lambda = lambda_.Function(
             self, "PostConfirmationLambda",
-            runtime=lambda_.Runtime.PYTHON_3_14,
+            runtime=lambda_.Runtime.PYTHON_3_13,
             handler="index.handler",
             code=lambda_.Code.from_asset("lambda/post_confirmation"),
             environment={
